@@ -24,11 +24,14 @@ def ip_address_from_mac(mac_address)
   ip_bytes.map { |s| s.to_i(16) }.join('.')
 end
 
-def mac_from_ip_address(ip_address)
+def parse_ip_address(ip_address)
   bytes = ip_address.split('.')
   raise 'Invalid IP address format' unless bytes.length == 4
+  bytes.map &:to_i
+end
 
-  ip_in_hex = bytes.map { |s| '%02x' % s.to_i }
+def mac_from_ip_address(ip_address)
+  ip_in_hex = parse_ip_address(ip_address).map { |b| '%02x' % b }
   MAC_PREFIX + ip_in_hex.join(':')
 end
 
@@ -50,22 +53,65 @@ def used_ip_addresses(conn)
 end
 
 def all_ip_addresses(conn)
-  ip_range = (2..254)
-  ip_range.map { |n| [192, 168, 122, n].join('.') }
+  network = default_network(conn)
+  doc = REXML::Document.new(network.xml_desc)
+  range_elem = doc.elements['network/ip/dhcp/range']
+
+  unless range_elem
+    raise "DHCP IP range element not defined in the network: '#{network.name}'"
+  end
+
+  ip_range_start = parse_ip_address(range_elem.attributes['start'])
+  ip_range_end = parse_ip_address(range_elem.attributes['end'])
+
+  unless (0..2).all? { |index| ip_range_start[index] == ip_range_end[index] }
+    raise "The IP Address range must form a C-type subnet. "
+      "The first three segments must be the same"
+  end
+
+  range = (ip_range_start[3]..ip_range_end[3])
+  ip_addresses = range.map do |n|
+    [ip_range_start[0], ip_range_start[1], ip_range_start[2], n].join('.')
+  end
+
+  return ip_addresses
 end
 
 def available_ip_addresses(conn)
   all_ip_addresses(conn) - used_ip_addresses(conn)
 end
 
+def default_network(conn)
+  networks = conn.list_networks.map { |name| conn.lookup_network_by_name(name) }
+  network = networks.select { |n| n.autostart? }.first
 
-vms = list_all_vms(conn)
-puts vms.map(&:name)
+  raise "No active && autostart network available." unless network
 
-macs = vms.map {|vm| mac_from_vm(vm)}
-puts macs
+  return network
+end
 
-ips = used_ip_addresses(conn)
-puts ips
+def command_setup_network(conn)
+  ip_addresses = all_ip_addresses(conn)
+  network = default_network(conn)
 
-available_ip_addresses(conn).each {|ip| puts "#{ip} <- #{mac_from_ip_address(ip)}"}
+  doc = REXML::Document.new(network.xml_desc)
+  doc.elements.delete_all('network/ip/dhcp/host')
+
+  dhcp_elem = doc.elements['network/ip/dhcp']
+  ip_addresses.each do |ip|
+    dhcp_elem.add_element 'host', {'ip' => ip, 'mac' => mac_from_ip_address(ip)}
+  end
+
+  # Remove the current network
+  network.destroy
+  network.undefine
+
+  # Replace it with the updated XML definition
+  conn.define_network_xml(doc.to_s)
+  new_network = conn.lookup_network_by_name(network.name)
+  new_network.autostart = true
+  new_network.create
+end
+
+
+command_setup_network(conn)
