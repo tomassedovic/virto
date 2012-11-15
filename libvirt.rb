@@ -7,11 +7,16 @@ require 'rexml/document'
 conn = Libvirt::open("qemu:///system")
 
 
+MAC_PREFIX = '52:33:'
+
 def ip_address_from_mac(mac_address)
   mac_address = mac_address.strip
   raise 'Invalid MAC format' unless mac_address.length == 17
   bytes = mac_address.split(':')
   raise 'Invalid MAC format' unless bytes.length == 6
+  unless mac_address.start_with? MAC_PREFIX
+    raise "Unknown MAC address. Use the prefix: '#{MAC_PREFIX}'"
+  end
 
   # Assume the IP address is identical to the four least significant bytes of
   # the MAC
@@ -24,8 +29,7 @@ def mac_from_ip_address(ip_address)
   raise 'Invalid IP address format' unless bytes.length == 4
 
   ip_in_hex = bytes.map { |s| '%02x' % s.to_i }
-  prefix = '52:54:'
-  prefix + ip_in_hex.join(':')
+  MAC_PREFIX + ip_in_hex.join(':')
 end
 
 def list_all_vms(conn)
