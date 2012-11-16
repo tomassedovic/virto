@@ -25,19 +25,28 @@ class App < Thor
 
   desc "images", "List the base images to launch VMs from"
   def images
-    puts "TODO"
+    puts @virt.stopped_vms.map(&:name)
   end
 
 
   desc "create IMAGE", "Launches a new virtual machine from the given image"
   def create(image)
+    # alias: launch?
     puts 'TODO: clone the image and launch a new VM'
   end
 
 
   desc "list", "Lists all the virtual machines (running and stopped)"
   def list
-    puts "TODO"
+    known_vms = @virt.running_vms.select do |vm|
+      @virt.known_mac?(@virt.mac_address_from_vm(vm))
+    end
+
+    if known_vms.empty?
+      puts "(no know virtual machines are running)"
+    else
+      puts known_vms.map(&:name)
+    end
   end
 
 

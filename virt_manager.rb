@@ -22,7 +22,7 @@ class VirtManager
   raise 'Invalid MAC format' unless mac_address.length == 17
   bytes = mac_address.split(':')
   raise 'Invalid MAC format' unless bytes.length == 6
-  unless mac_address.start_with? @mac_prefix
+  unless known_mac?(mac_address)
     raise "Unknown MAC address. Use the prefix: '#{@mac_prefix}'"
   end
 
@@ -43,10 +43,20 @@ def mac_from_ip_address(ip_address)
   @mac_prefix + ip_in_hex.join(':')
 end
 
+def running_vms()
+  @libvirt.list_domains.map {|id| @libvirt.lookup_domain_by_id(id)}
+end
+
+def stopped_vms()
+  @libvirt.list_defined_domains.map {|name| @libvirt.lookup_domain_by_name(name)}
+end
+
 def all_vms()
-  running_vms = @libvirt.list_domains.map {|id| @libvirt.lookup_domain_by_id(id)}
-  stopped_vms = @libvirt.list_defined_domains.map {|name| @libvirt.lookup_domain_by_name(name)}
   running_vms + stopped_vms
+end
+
+def known_mac?(mac_address)
+  mac_address.start_with? @mac_prefix
 end
 
 def mac_address_from_vm(vm)
