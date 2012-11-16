@@ -2,6 +2,7 @@
 
 require 'libvirt'
 require 'rexml/document'
+require 'thor'
 
 
 conn = Libvirt::open("qemu:///system")
@@ -114,4 +115,67 @@ def command_setup_network(conn)
 end
 
 
-command_setup_network(conn)
+class App < Thor
+  desc "setup-network [NAME]", "Sets up the default libvirt network's DHCP"
+  def setup_network(name=nil)
+    if name
+      puts "setting up network: #{name}"
+    else
+      puts "setting up the default network"
+    end
+    puts "TODO: add the IP<->MAC address mappings to the libvirt network"
+  end
+
+
+  desc "images", "List the base images to launch VMs from"
+  def images
+    puts "TODO"
+  end
+
+
+  desc "create IMAGE", "Launches a new virtual machine from the given image"
+  def create(image)
+    puts 'TODO: clone the image and launch a new VM'
+  end
+
+
+  desc "list", "Lists all the virtual machines (running and stopped)"
+  def list
+    puts "TODO"
+  end
+
+
+  desc "ssh NAME", "SSH into the given VM"
+  def ssh(name)
+    puts "TODO: get the VM's IP and SSH into it"
+  end
+
+
+  desc "mount NAME", "Mount the VM's filesystem using sshfs"
+  def mount(name)
+    puts "TODO: sshfs the VM's disk"
+  end
+
+
+  desc "stop NAME", "Stop the running VM"
+  def stop(name)
+    # alias: shutdown?
+    puts "TODO"
+  end
+
+
+  desc "start NAME", "Start a stopped VM"
+  def start(name)
+    # alias: launch?
+    puts "TODO"
+  end
+
+
+  desc "restart NAME", "Restart the running VM"
+  def restart(name)
+    # alias: reboot?
+    puts "TODO"
+  end
+end
+
+App.start
