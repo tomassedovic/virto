@@ -147,13 +147,22 @@ class VirtManager
 
     raise NameAlreadyTaken.new(name) if find_vm_by_name(name)
 
-    new_image_file_path = 'TODO:image-path'
+    image = find_vm_by_name(image_name)
+    doc = REXML::Document.new(image.xml_desc)
+    # Get the element containing the path to the source image
+    source_element = doc.elements["domain/devices/disk[contains(@type,'file') and contains(@device,'disk')]/source"]
+    source_image_path = source_element.attributes['file']
+    raise "Error getting the source image path" unless source_image_path
+
+    new_image_file_path = File.join(File.dirname(source_image_path),
+        "#{name}#{File.extname(source_image_path)}")
     virt_clone_command = [
       %Q(virt-clone --quiet --force --connect "#{@uri}"),
       %Q(--original "#{image_name}" --name "#{name}"),
-      %Q(--mac "#{new_mac_address}" --file "#{new_image_file_path}),
+      %Q(--mac "#{new_mac_address}" --file "#{new_image_file_path}"),
     ].join(' ')
     puts(virt_clone_command)
+    system(virt_clone_command)
   end
 
   def find_vm_by_name(name)

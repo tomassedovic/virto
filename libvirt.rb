@@ -53,21 +53,35 @@ class App < Thor
 
   desc "list", "Lists all the virtual machines (running and stopped)"
   def list
-    known_vms = @virt.running_vms.select do |vm|
+    known_vms = @virt.all_vms.select do |vm|
       @virt.known_mac?(@virt.mac_address_from_vm(vm))
     end
 
     if known_vms.empty?
       puts "(no know virtual machines are running)"
     else
-      puts known_vms.map(&:name)
+      states_descriptions = {
+        1 => 'running',
+        5 => 'stopped'
+      }
+      states_descriptions.default = 'TODO: not implemented yet'
+      table = known_vms.map do |vm|
+        "#{vm.name}\t\t#{states_descriptions[vm.state.first]}"
+      end
+      puts table
     end
   end
 
 
-  desc "ssh NAME", "SSH into the given VM"
-  def ssh(name)
-    puts "TODO: get the VM's IP and SSH into it"
+  desc "ssh NAME USER", "SSH into the given VM"
+  def ssh(name, user='root')
+    vm = @virt.find_vm_by_name(name)
+    raise Thor::Error.new("Unknown VM: '#{name}'") unless vm
+    raise Thor::Error.new("#{name} is not running") unless (vm.state.first == 1)
+
+    ip = @virt.ip_address_from_mac(@virt.mac_address_from_vm(vm))
+    puts "IP address of #{name}: #{ip}"
+    exec %Q(ssh #{user}@#{ip} -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null")
   end
 
 
