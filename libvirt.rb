@@ -25,14 +25,29 @@ class App < Thor
 
   desc "images", "List the base images to launch VMs from"
   def images
-    puts @virt.stopped_vms.map(&:name)
+    puts @virt.images
   end
 
 
-  desc "create IMAGE", "Launches a new virtual machine from the given image"
-  def create(image)
+  desc "create IMAGE NAME", "Launches a new virtual machine from the given image"
+  def create(image_name, vm_name)
     # alias: launch?
-    puts 'TODO: clone the image and launch a new VM'
+
+    new_ip = @virt.available_ip_addresses.first
+    unless new_ip
+      raise Thor::Error.new("There are no more IP addresses available. Shut down some of your VMs.")
+    end
+
+    new_mac = @virt.mac_from_ip_address(new_ip)
+    begin
+      @virt.clone_vm(image_name, vm_name, new_mac)
+    rescue VirtManager::UnknownImage
+      raise Thor::Error.new("Unknown image: #{image_name}")
+    rescue VirtManager::InvalidName
+      raise Thor::Error.new("The VM name must contain letters, numbers, underscores and dashes only.")
+    rescue VirtManager::NameAlreadyTaken
+      raise Thor::Error.new("Virtual machine '#{vm_name}' already exists. Pick another name.")
+    end
   end
 
 

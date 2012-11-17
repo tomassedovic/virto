@@ -2,6 +2,10 @@ require 'libvirt'
 require 'rexml/document'
 
 class VirtManager
+  class UnknownImage < StandardError; end
+  class InvalidName < StandardError; end
+  class NameAlreadyTaken < StandardError; end
+
   def initialize(libvirt_uri, mac_prefix, network_name=nil)
     @uri = libvirt_uri
     @mac_prefix = mac_prefix
@@ -53,6 +57,10 @@ class VirtManager
     @libvirt.list_defined_domains.map {|name| @libvirt.lookup_domain_by_name(name)}
   end
 
+  def images()
+    stopped_vms.map(&:name)
+  end
+
   def all_vms()
     running_vms + stopped_vms
   end
@@ -69,7 +77,7 @@ class VirtManager
 
   def used_ip_addresses()
     used_mac_addresses = all_vms.map { |vm| mac_address_from_vm(vm) }
-    used_mac_addresses.map { |mac| ip_address_from_mac(mac) }
+    used_mac_addresses.select { |mac| known_mac? mac }.map { |mac| ip_address_from_mac(mac) }
   end
 
   def all_ip_addresses()
@@ -129,5 +137,30 @@ class VirtManager
     new_network = @libvirt.lookup_network_by_name(@network.name)
     new_network.autostart = true
     new_network.create
+  end
+
+  def clone_vm(image_name, name, new_mac_address)
+    raise UnknownImage.new(image_name) unless images.include? image_name
+
+    legal_vm_name = /\A[a-zA-Z0-9_-]+\Z/  # alphanumerics, underscore, dash
+    raise InvalidName.new(name) unless legal_vm_name.match(name)
+
+    raise NameAlreadyTaken.new(name) if find_vm_by_name(name)
+
+    new_image_file_path = 'TODO:image-path'
+    virt_clone_command = [
+      %Q(virt-clone --quiet --force --connect "#{@uri}"),
+      %Q(--original "#{image_name}" --name "#{name}"),
+      %Q(--mac "#{new_mac_address}" --file "#{new_image_file_path}),
+    ].join(' ')
+    puts(virt_clone_command)
+  end
+
+  def find_vm_by_name(name)
+    begin
+      @libvirt.lookup_domain_by_name(name)
+    rescue Libvirt::RetrieveError
+      nil
+    end
   end
 end
