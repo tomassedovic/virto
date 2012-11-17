@@ -41,6 +41,9 @@ class App < Thor
     new_mac = @virt.mac_from_ip_address(new_ip)
     begin
       @virt.clone_vm(image_name, vm_name, new_mac)
+      vm = @virt.find_vm_by_name(vm_name)
+      vm.create
+      puts "#{vm_name} was successfully launched. It's IP address is: #{new_ip}"
     rescue VirtManager::UnknownImage
       raise Thor::Error.new("Unknown image: #{image_name}")
     rescue VirtManager::InvalidName
@@ -58,7 +61,7 @@ class App < Thor
     end
 
     if known_vms.empty?
-      puts "(no know virtual machines are running)"
+      puts "(there are no know virtual machines)"
     else
       states_descriptions = {
         1 => 'running',
@@ -93,8 +96,11 @@ class App < Thor
 
   desc "stop NAME", "Stop the running VM"
   def stop(name)
-    # alias: shutdown?
-    puts "TODO"
+    vm = @virt.find_vm_by_name(name)
+    raise Thor::Error.new("Unknown VM: '#{name}'") unless vm
+    raise Thor::Error.new("#{name} is not running") unless (vm.state.first == 1)
+    vm.destroy
+    puts "#{name} was stopped."
   end
 
 
@@ -109,6 +115,16 @@ class App < Thor
   def restart(name)
     # alias: reboot?
     puts "TODO"
+  end
+
+  desc "destroy NAME", "Delete the VM and its image"
+  def destroy(name)
+    # alias: delete, remove?
+    puts "TODO"
+    # - get the domain's image path
+    # - undefine the domain
+    # - delete the image
+    # - refresh the pool (otherwise subsequent creating fails)
   end
 end
 

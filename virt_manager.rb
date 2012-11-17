@@ -5,6 +5,7 @@ class VirtManager
   class UnknownImage < StandardError; end
   class InvalidName < StandardError; end
   class NameAlreadyTaken < StandardError; end
+  class CommandError < StandardError; end
 
   def initialize(libvirt_uri, mac_prefix, network_name=nil)
     @uri = libvirt_uri
@@ -162,7 +163,8 @@ class VirtManager
       %Q(--mac "#{new_mac_address}" --file "#{new_image_file_path}"),
     ].join(' ')
     puts(virt_clone_command)
-    system(virt_clone_command)
+    result = system(virt_clone_command)
+    raise CommandError.new(virt_clone_command) unless result
   end
 
   def find_vm_by_name(name)
